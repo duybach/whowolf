@@ -19,7 +19,7 @@ const makeId = (length) => {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
   }
   return result;
-}
+};
 
 const initWhoWolfLobby = (lobbyId) => {
   lobbyList[lobbyId].game = {
@@ -60,8 +60,6 @@ const tickTime = (lobbyId) => {
   lobbyList[lobbyId].game.timeLeft--;
   if (lobbyList[lobbyId].game.timeLeft <= 0) {
     nextPhase(lobbyId);
-
-    lobbyList[lobbyId].game.timeLeft = 30;
   }
 
   if (lobbyList[lobbyId].game.teamWon) {
@@ -110,6 +108,8 @@ const nextPhase = (lobbyId) => {
       break;
     }
   }
+
+  lobbyList[lobbyId].game.timeLeft = 30;
 
   if (lobbyList[lobbyId].game.phase === 2) {
     calcEndOfNight(lobbyId);
