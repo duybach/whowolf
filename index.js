@@ -22,6 +22,8 @@ const makeId = (length) => {
 };
 
 const initWhoWolfLobby = (lobbyId) => {
+  lobbyList[lobbyId].status = 'GAME';
+
   lobbyList[lobbyId].game = {
     round: 0,
     phase: 0,
@@ -29,45 +31,45 @@ const initWhoWolfLobby = (lobbyId) => {
     discussionTime: 30,
     voteTime: 30,
     teamWon: null,
-    werwolfTarget: null
+    werwolfTarget: null,
+    amountOfWerWolfPlayers: 2,
+    amountOfWitchPlayers: 1
   };
 
-  let counter = 0;
   for (playerId in lobbyList[lobbyId].players) {
     lobbyList[lobbyId].players[playerId].status = 'PLAYER_ALIVE';
+    lobbyList[lobbyId].players[playerId].role = 'PEASENT';
+  }
 
-    if (counter === 0) {
-      lobbyList[lobbyId].players[playerId].role = 'WERWOLF';
-    } else if (counter === 1) {
-      lobbyList[lobbyId].players[playerId].role = 'WITCH';
-      lobbyList[lobbyId].players[playerId].healLeft = 1;
-    } else {
-      lobbyList[lobbyId].players[playerId].role = 'PEASENT';
+  let i = 0;
+  while (i < lobbyList[lobbyId].game.amountOfWerWolfPlayers) {
+    let randomPlayerId = Object.keys(lobbyList[lobbyId].players)[Math.floor(Math.random() * Math.floor(Object.keys(lobbyList[lobbyId].players).length))];
+    if (lobbyList[lobbyId].players[randomPlayerId].role === 'PEASENT') {
+      lobbyList[lobbyId].players[randomPlayerId].role = 'WERWOLF';
+      i++;
+    }
+  }
+
+  i = 0;
+  while (i < lobbyList[lobbyId].game.amountOfWitchPlayers) {
+    let randomPlayerId = Object.keys(lobbyList[lobbyId].players)[Math.floor(Math.random() * Math.floor(Object.keys(lobbyList[lobbyId].players).length))];
+    if (lobbyList[lobbyId].players[randomPlayerId].role === 'PEASENT') {
+      lobbyList[lobbyId].players[randomPlayerId].role = 'WITCH';
+      i++;
+    }
+  }
+
+  const lobbyIntervalId = setInterval(() => {
+    lobbyList[lobbyId].game.timeLeft--;
+    if (lobbyList[lobbyId].game.timeLeft <= 0) {
+      nextPhase(lobbyId);
     }
 
-    counter++;
-  }
-
-  // Spielstatus: {id_0: player_0, ..., id_n: player_n}
-  // Werwolf: [id_0, ..., id_n] --> 30% (?) of players
-  // Hexe: [id] --> Random
-  // Bauer: [id_0, ..., id_n] --> Remaining players
-
-  setInterval(tickTime, 1000, lobbyId);
-}
-
-const tickTime = (lobbyId) => {
-  lobbyList[lobbyId].game.timeLeft--;
-  if (lobbyList[lobbyId].game.timeLeft <= 0) {
-    nextPhase(lobbyId);
-  }
-
-  if (lobbyList[lobbyId].game.teamWon) {
-    console.log('GAME FINISH');
-  } else {
-    console.log(lobbyList[lobbyId].game.timeLeft)
-  }
-}
+    if (lobbyList[lobbyId].game.teamWon) {
+      clearInterval(lobbyIntervalId);
+    }
+  }, 1000, lobbyId);
+};
 
 const nextPhase = (lobbyId) => {
   if (lobbyList[lobbyId].game.phase === 0) {
@@ -251,7 +253,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('lobby', (lobbyId, action, message) => {
-    if (!(lobbyId in lobbyList && socket.id in lobbyList[lobbyId].players && ['LOBBY_NOT_READY', 'LOBBY_READY'].includes(lobbyList[lobbyId].status))) {
+    if (!(lobbyId in lobbyList && socket.id in lobbyList[lobbyId].players && ['LOBBY_NOT_READY', 'LOBBY_READY', 'GAME_END'].includes(lobbyList[lobbyId].status))) {
       return;
     }
 
@@ -281,9 +283,8 @@ io.on('connection', (socket) => {
         break;
       case 'START_GAME':
         if (socket.id === lobbyList[lobbyId].hostId) {
-          if (lobbyList[lobbyId].status === 'LOBBY_READY') {
+          if (['LOBBY_READY', 'GAME_END'].includes(lobbyList[lobbyId].status)) {
             initWhoWolfLobby(lobbyId);
-            lobbyList[lobbyId].status = 'GAME';
           }
         }
         break;
