@@ -27,7 +27,7 @@ const initWhoWolfLobby = (lobbyId) => {
   lobbyList[lobbyId].game = {
     round: 0,
     phase: 0,
-    timeLeft: 30,
+    timeLeft: 3000,
     discussionTime: 30,
     voteTime: 30,
     teamWon: null,
@@ -55,6 +55,7 @@ const initWhoWolfLobby = (lobbyId) => {
     let randomPlayerId = Object.keys(lobbyList[lobbyId].players)[Math.floor(Math.random() * Math.floor(Object.keys(lobbyList[lobbyId].players).length))];
     if (lobbyList[lobbyId].players[randomPlayerId].role === 'PEASENT') {
       lobbyList[lobbyId].players[randomPlayerId].role = 'WITCH';
+      lobbyList[lobbyId].players[randomPlayerId].healLeft = 1;
       i++;
     }
   }
@@ -148,9 +149,11 @@ const calcEndOfDay = (lobbyId) => {
     }
   }
 
-  lobbyList[lobbyId].players[targetPlayerId].status = 'PLAYER_DEAD';
+  if (targetPlayerId in lobbyList[lobbyId].players) {
+    lobbyList[lobbyId].players[targetPlayerId].status = 'PLAYER_DEAD';
 
-  calcGameResult(lobbyId);
+    calcGameResult(lobbyId);
+  }
 }
 
 const calcEndOfNight = (lobbyId) => {
@@ -192,6 +195,14 @@ const endGame = (lobbyId, teamWon) => {
   lobbyList[lobbyId].game.teamWon = teamWon;
 }
 
+const playerIsAlive = (lobbyId, playerId) => {
+   return lobbyList[lobbyId].players[playerId].status === 'PLAYER_ALIVE';
+}
+
+const playerIsRole = (lobbyId, playerId, role) => {
+  return lobbyList[lobbyId].players[playerId].role === role;
+}
+
 io.on('connection', (socket) => {
   console.log('a user connected');
 
@@ -209,7 +220,8 @@ io.on('connection', (socket) => {
           status: 'PLAYER_NOT_READY',
           role: null,
           targetPlayerId: null,
-          healLeft: null
+          healLeft: null,
+          amountOfReceivedVotes: null
         }
       },
       game: null
@@ -227,8 +239,7 @@ io.on('connection', (socket) => {
       lobbyList[lobbyId].players[socket.id] = {
         id: socket.id,
         alias: alias,
-        status: 'PLAYER_NOT_READY',
-        targetPlayerId: null
+        status: 'PLAYER_NOT_READY'
       };
 
       socket.join(lobbyId, () => {
@@ -282,7 +293,7 @@ io.on('connection', (socket) => {
         }
         break;
       case 'START_GAME':
-        if (socket.id === lobbyList[lobbyId].hostId) {
+      if (socket.id === lobbyList[lobbyId].hostId && Object.keys(lobbyList[lobbyId].players).length >= 4) {
           if (['LOBBY_READY', 'GAME_END'].includes(lobbyList[lobbyId].status)) {
             initWhoWolfLobby(lobbyId);
           }
@@ -302,25 +313,28 @@ io.on('connection', (socket) => {
 
     switch(action) {
       case 'PLAYER_VOTE':
-        if (lobbyList[lobbyId].game.phase === 0) {
-            if (message.playerId in lobbyList[lobbyId].players && lobbyList[lobbyId].players[message.playerId].status === 'PLAYER_ALIVE') {
+        if (lobbyList[lobbyId].game.round !== 0 && lobbyList[lobbyId].game.phase === 0 && playerIsAlive(lobbyId, socket.id)) {
+            if (message.playerId in lobbyList[lobbyId].players && playerIsAlive(lobbyId, message.playerId)) {
               lobbyList[lobbyId].players[socket.id].targetPlayerId = message.playerId;
             }
         }
 
         break;
       case 'PLAYER_KILL':
-        if (lobbyList[lobbyId].game.phase === 1) {
-            if (message.playerId in lobbyList[lobbyId].players && lobbyList[lobbyId].players[message.playerId].status === 'PLAYER_ALIVE') {
+        if (lobbyList[lobbyId].game.phase === 1 && playerIsAlive(lobbyId, socket.id) && playerIsRole(lobbyId, socket.id, 'WERWOLF')) {
+            if (message.playerId in lobbyList[lobbyId].players && playerIsAlive(lobbyId, message.playerId)) {
               lobbyList[lobbyId].players[socket.id].targetPlayerId = message.playerId;
             }
         }
 
         break;
       case 'PLAYER_HEAL':
-        if (lobbyList[lobbyId].game.phase === 2) {
-            if (message.playerId in lobbyList[lobbyId].players && lobbyList[lobbyId].players[message.playerId].status === 'PLAYER_ALIVE') {
-              lobbyList[lobbyId].players[socket.id].targetPlayerId = message.playerId;
+        if (lobbyList[lobbyId].game.phase === 2 && playerIsAlive(lobbyId, socket.id) && playerIsRole(lobbyId, socket.id, 'WITCH')) {
+            if (message.playerId in lobbyList[lobbyId].players && playerIsAlive(lobbyId, message.playerId)) {
+              if (lobbyList[lobbyId].players[socket.id].healLeft > 0) {
+                lobbyList[lobbyId].players[socket.id].targetPlayerId = message.playerId;
+                lobbyList[lobbyId].players[socket.id].healLeft--;
+              }
             }
         }
 
