@@ -6,20 +6,12 @@ const port = 3000;
 const io = require('socket.io')(server);
 const bodyParser = require('body-parser');
 
+const lobby = require('./services/lobby');
+
 app.use(cors());
 app.use(bodyParser.json());
 
 var lobbyList = {};
-
-const makeId = (length) => {
-  let result = '';
-  let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let charactersLength = characters.length;
-  for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * charactersLength));
-  }
-  return result;
-};
 
 const initWhoWolfLobby = (lobbyId) => {
   lobbyList[lobbyId].status = 'GAME';
@@ -207,9 +199,9 @@ io.on('connection', (socket) => {
   console.log('a user connected');
 
   socket.on('createLobby', (alias, fn) => {
-    let lobbyId = makeId(5);
+    let lobbyId = lobby.makeId(5);
 
-    let lobby = {
+    let new_lobby = {
       id: lobbyId,
       hostId: socket.id,
       status: 'LOBBY_NOT_READY',
@@ -227,7 +219,7 @@ io.on('connection', (socket) => {
       game: null
     };
 
-    lobbyList[lobbyId] = lobby;
+    lobbyList[lobbyId] = new_lobby;
 
     socket.join(lobbyId, () => {
       fn({ lobbyId: lobbyId });
@@ -295,7 +287,7 @@ io.on('connection', (socket) => {
       case 'START_GAME':
       if (socket.id === lobbyList[lobbyId].hostId && Object.keys(lobbyList[lobbyId].players).length >= 4) {
           if (['LOBBY_READY', 'GAME_END'].includes(lobbyList[lobbyId].status)) {
-            initWhoWolfLobby(lobbyId);
+            whowolf.initWhoWolfLobby(lobbyId);
           }
         }
         break;
@@ -345,7 +337,13 @@ io.on('connection', (socket) => {
 
     io.to(lobbyId).emit('lobbyStatus', lobbyList[lobbyId]);
   });
+
+  socket.on('disconnect', (reason) => {
+    console.log(`${socket.id} left because of ${reason}`);
+  });
 });
+
+
 
 server.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
