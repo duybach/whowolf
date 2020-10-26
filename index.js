@@ -9,6 +9,9 @@ const bodyParser = require('body-parser');
 const db = require('./loaders/db');
 const lobby = require('./services/lobby');
 
+const User = require('./models/user')
+const Lobby = require('./models/lobby')
+
 app.use(cors());
 app.use(bodyParser.json());
 
@@ -25,8 +28,8 @@ const initWhoWolfLobby = (lobbyId) => {
     voteTime: 30,
     teamWon: null,
     werwolfTarget: null,
-    amountOfWerWolfPlayers: 2,
-    amountOfWitchPlayers: 1
+    amountWerWolfPlayers: 2,
+    amountWitchPlayers: 1
   };
 
   for (playerId in lobbyList[lobbyId].players) {
@@ -35,7 +38,7 @@ const initWhoWolfLobby = (lobbyId) => {
   }
 
   let i = 0;
-  while (i < lobbyList[lobbyId].game.amountOfWerWolfPlayers) {
+  while (i < lobbyList[lobbyId].game.amountWerWolfPlayers) {
     let randomPlayerId = Object.keys(lobbyList[lobbyId].players)[Math.floor(Math.random() * Math.floor(Object.keys(lobbyList[lobbyId].players).length))];
     if (lobbyList[lobbyId].players[randomPlayerId].role === 'PEASENT') {
       lobbyList[lobbyId].players[randomPlayerId].role = 'WERWOLF';
@@ -44,7 +47,7 @@ const initWhoWolfLobby = (lobbyId) => {
   }
 
   i = 0;
-  while (i < lobbyList[lobbyId].game.amountOfWitchPlayers) {
+  while (i < lobbyList[lobbyId].game.amountWitchPlayers) {
     let randomPlayerId = Object.keys(lobbyList[lobbyId].players)[Math.floor(Math.random() * Math.floor(Object.keys(lobbyList[lobbyId].players).length))];
     if (lobbyList[lobbyId].players[randomPlayerId].role === 'PEASENT') {
       lobbyList[lobbyId].players[randomPlayerId].role = 'WITCH';
@@ -162,7 +165,7 @@ const calcEndOfNight = (lobbyId) => {
 
 const calcGameResult = (lobbyId) => {
   let amountOfTownPlayers = 0;
-  let amountOfWerWolfPlayers = 0;
+  let amountWerWolfPlayers = 0;
 
   for (playerId in lobbyList[lobbyId].players) {
     if (lobbyList[lobbyId].players[playerId].status !== 'PLAYER_ALIVE') {
@@ -170,15 +173,15 @@ const calcGameResult = (lobbyId) => {
     }
 
     if (lobbyList[lobbyId].players[playerId].role === 'WERWOLF') {
-      amountOfWerWolfPlayers++;
+      amountWerWolfPlayers++;
     } else {
       amountOfTownPlayers++;
     }
   }
 
-  if (amountOfWerWolfPlayers === 0) {
+  if (amountWerWolfPlayers === 0) {
     endGame(lobbyId, 'TOWN');
-  } else if (amountOfTownPlayers <= amountOfWerWolfPlayers) {
+  } else if (amountOfTownPlayers <= amountWerWolfPlayers) {
     endGame(lobbyId, 'WERWOLF');
   }
 }
@@ -199,10 +202,36 @@ const playerIsRole = (lobbyId, playerId, role) => {
 io.on('connection', (socket) => {
   console.log('a user connected');
 
+  const newUserSql = new User({
+    lobbyId: null,
+    targetPlayerId: null,
+    socketId: socket.id,
+    alias: null,
+    status: null,
+    role: null,
+    healLeft: null
+  });
+
+  User.create(newUserSql, (err, data) => {
+    console.log(err);
+    console.log(data);
+  });
+
   socket.on('createLobby', (alias, fn) => {
     let lobbyId = lobby.makeId(5);
 
-    let new_lobby = {
+    const newLobbySql = new Lobby({
+      code: lobbyId,
+      hostId: socket.id,
+      status: 'LOBBY_NOT_READY'
+    });
+
+    Lobby.create(newLobbySql, (err, data) => {
+      console.log(err);
+      console.log(data);
+    });
+
+    let newLobby = {
       id: lobbyId,
       hostId: socket.id,
       status: 'LOBBY_NOT_READY',
@@ -219,7 +248,7 @@ io.on('connection', (socket) => {
       game: null
     };
 
-    lobbyList[lobbyId] = new_lobby;
+    lobbyList[lobbyId] = newLobby;
 
     socket.join(lobbyId, () => {
       fn({ lobbyId: lobbyId });
