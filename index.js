@@ -6,6 +6,7 @@ const port = 3000;
 const io = require('socket.io')(server);
 const bodyParser = require('body-parser');
 
+const db = require('./loaders/db');
 const lobby = require('./services/lobby');
 
 app.use(cors());
@@ -213,7 +214,6 @@ io.on('connection', (socket) => {
           role: null,
           targetPlayerId: null,
           healLeft: null,
-          amountOfReceivedVotes: null
         }
       },
       game: null
