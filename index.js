@@ -203,9 +203,9 @@ io.on('connection', (socket) => {
   console.log('a user connected');
 
   const newUserSql = new User({
+    id: socket.id,
     lobbyId: null,
     targetPlayerId: null,
-    socketId: socket.id,
     alias: null,
     status: null,
     role: null,
@@ -213,86 +213,117 @@ io.on('connection', (socket) => {
   });
 
   User.create(newUserSql, (err, data) => {
-    console.log(err);
-    console.log(data);
+    if (err) {
+      console.log(err);
+    }
   });
 
   socket.on('createLobby', (alias, fn) => {
-    let lobbyId = lobby.makeId(5);
+    User.getById(socket.id, (err, user) => {
+      if (err) {
+        console.log(err);
+      } else {
+        const newLobbySql = new Lobby({
+          hostId: user.id,
+          status: 'LOBBY_NOT_READY'
+        });
 
-    const newLobbySql = new Lobby({
-      code: lobbyId,
-      hostId: socket.id,
-      status: 'LOBBY_NOT_READY'
-    });
+        Lobby.create(newLobbySql, (err, lobbyId) => {
+          if (err) {
+            console.log(err);
+          }
 
-    Lobby.create(newLobbySql, (err, data) => {
-      console.log(err);
-      console.log(data);
-    });
-
-    let newLobby = {
-      id: lobbyId,
-      hostId: socket.id,
-      status: 'LOBBY_NOT_READY',
-      players: {
-        [socket.id]: {
-          id: socket.id,
-          alias: alias,
-          status: 'PLAYER_NOT_READY',
-          role: null,
-          targetPlayerId: null,
-          healLeft: null,
-        }
-      },
-      game: null
-    };
-
-    lobbyList[lobbyId] = newLobby;
-
-    socket.join(lobbyId, () => {
-      fn({ lobbyId: lobbyId });
+          User.updateById(user.id, {...user, alias: alias, lobbyId: lobbyId, status: 'PLAYER_NOT_READY'}, (err, data) => {
+            if (err) {
+              console.log(err);
+            } else {
+              socket.join(lobbyId, () => {
+                fn({ lobbyId: lobbyId });
+              });
+            }
+          });
+        });
+      }
     });
   });
 
   socket.on('joinLobby', (lobbyId, alias, fn) => {
-    if (lobbyId in lobbyList) {
-      lobbyList[lobbyId].players[socket.id] = {
-        id: socket.id,
-        alias: alias,
-        status: 'PLAYER_NOT_READY'
-      };
-
-      socket.join(lobbyId, () => {
-        socket.to(lobbyId).emit('lobbyStatus', lobbyList[lobbyId]);
-        fn({lobbyId: lobbyId});
-      });
-    } else {
-      fn({error: 'Lobby does not exist'});
-    }
+    Lobby.getById(lobbyId, (err, lobby) => {
+      if (err) {
+        fn({ error: 'Lobby does not exist' })
+      } else {
+        User.getById(socket.id, (err, user) => {
+          if (err) {
+            console.log(err);
+          } else {
+            User.updateById(socket.id, { ...user, alias: alias, lobbyId: lobby.id, status: 'PLAYER_NOT_READY'}, (err, user) => {
+              if (err) {
+                console.log(err);
+              } else {
+                socket.join(lobbyId, () => {
+                  socket.to(lobbyId).emit('lobbyStatus', lobbyList[lobbyId]);
+                  fn({lobbyId: lobbyId});
+                });
+              }
+            });
+          }
+        });
+      }
+    });
   });
 
   socket.on('chat', (lobbyId, chatMessage) => {
-    io.to(lobbyId).emit('chat', { alias: lobbyList[lobbyId].players[socket.id].alias, chatMessage: chatMessage });
+    User.getById(socket.id, (err, user) => {
+      if (err) {
+        console.log(err);
+      } else {
+        io.to(lobbyId).emit('chat', { alias: user.alias, chatMessage: chatMessage });
+      }
+    });
   });
 
   socket.on('lobbyStatus', (lobbyId, fn) => {
-    if (lobbyId in lobbyList && socket.id in lobbyList[lobbyId].players) {
-      fn(lobbyList[lobbyId]);
-    } else {
-      fn({ error: 'Lobby does not exist or player not in lobby'});
-    }
+    User.getById(socket.id, (err, user) => {
+      if (err) {
+        console.log(err);
+      } else {
+        if (user.lobbyId) {
+          Lobby.getById(user.lobbyId, (err, lobby) => {
+            User.getByLobbyId(lobby.id, (err, users) => {
+              if (err) {
+                console.log(err);
+              } else {
+                fn({ ...lobby, players: users });
+              }
+            });
+          });
+        }
+      }
+    });
   });
 
   socket.on('lobby', (lobbyId, action, message) => {
+    /*
     if (!(lobbyId in lobbyList && socket.id in lobbyList[lobbyId].players && ['LOBBY_NOT_READY', 'LOBBY_READY', 'GAME_END'].includes(lobbyList[lobbyId].status))) {
       return;
     }
+    */
 
     switch(action) {
       case 'PLAYER_READY':
-        lobbyList[lobbyId].players[socket.id].status = message.status ? 'PLAYER_READY' : 'PLAYER_NOT_READY';
+        User.getById(socket.id, (err, user) => {
+            if (err) {
+              console.log(err);
+            } else {
+              User.updateById(user.id, { ...user, status: message.status ? 'PLAYER_READY' : 'PLAYER_NOT_READY' }, (err, data) => {
+                if (err) {
+                  console.log(err);
+                }
+              });
+            }
+        });
 
+        /*
         let allPlayerReady = true;
 
         for (let playerId in lobbyList[lobbyId].players) {
@@ -303,6 +334,7 @@ io.on('connection', (socket) => {
         }
 
         lobbyList[lobbyId].status = allPlayerReady ? 'LOBBY_READY' : 'LOBBY_NOT_READY';
+        */
 
         break;
       case 'KICK_PLAYER':
@@ -324,13 +356,33 @@ io.on('connection', (socket) => {
         break;
     }
 
-    io.to(lobbyId).emit('lobbyStatus', lobbyList[lobbyId]);
+    User.getById(socket.id, (err, user) => {
+      if (err) {
+        console.log(err);
+      } else {
+        Lobby.getById(user.lobbyId, (err, lobby) => {
+          if (err) {
+            console.log(err);
+          } else {
+            User.getByLobbyId(lobby.id, (err, users) => {
+              if (err) {
+                console.log(err);
+              } else {
+                io.to(lobby.id).emit('lobbyStatus', { ...lobby, players: users });
+              }
+            });
+          }
+        });
+      }
+    });
   });
 
   socket.on('game', (lobbyId, action, message) => {
-    if (!(lobbyId in lobbyList && socket.id in lobbyList[lobbyId].players && ['GAME'].includes(lobbyList[lobbyId].status)/* && lobbyList[lobbyId].game.round !== 0*/)) {
+    /*
+    if (!(lobbyId in lobbyList && socket.id in lobbyList[lobbyId].players && ['GAME'].includes(lobbyList[lobbyId].status))) {
       return;
     }
+    */
 
     switch(action) {
       case 'PLAYER_VOTE':
@@ -364,7 +416,25 @@ io.on('connection', (socket) => {
         break;
     }
 
-    io.to(lobbyId).emit('lobbyStatus', lobbyList[lobbyId]);
+    User.getById(socket.id, (err, user) => {
+      if (err) {
+        console.log(err);
+      } else {
+        Lobby.getById(user.lobbyId, (err, lobby) => {
+          if (err) {
+            console.log(err);
+          } else {
+            User.getByLobbyId(lobby.id, (err, users) => {
+              if (err) {
+                console.log(err);
+              } else {
+                io.to(user.lobbyId).emit('lobbyStatus', { ...lobby, players: users });
+              }
+            });
+          }
+        });
+      }
+    });
   });
 
   socket.on('disconnect', (reason) => {
