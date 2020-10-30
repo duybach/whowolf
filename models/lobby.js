@@ -38,4 +38,20 @@ Lobby.getById = (id, result) => {
   });
 };
 
+Lobby.updateById = (id, lobby, result) => {
+  db.query(
+    'UPDATE lobby SET host_id = ?, status = ? WHERE id = ?',
+    [lobby.hostId, lobby.status, id],
+    (err, res) => {
+      if (err) {
+        result(err, null);
+      } else if (res.affectedRows === 0) {;
+        result({ error: 'not_found' }, null)
+      } else {
+        result(null, id);
+      }
+    }
+  )
+};
+
 module.exports = Lobby;

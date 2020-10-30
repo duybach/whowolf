@@ -202,17 +202,16 @@ const playerIsRole = (lobbyId, playerId, role) => {
 io.on('connection', (socket) => {
   console.log('a user connected');
 
-  const newUserSql = new User({
-    id: socket.id,
-    lobbyId: null,
-    targetPlayerId: null,
-    alias: null,
-    status: null,
-    role: null,
-    healLeft: null
-  });
-
-  User.create(newUserSql, (err, data) => {
+  User.create(
+    new User({
+      id: socket.id,
+      lobbyId: null,
+      targetPlayerId: null,
+      alias: null,
+      status: null,
+      role: null,
+      healLeft: null
+    }), (err, data) => {
     if (err) {
       console.log(err);
     }
@@ -231,17 +230,17 @@ io.on('connection', (socket) => {
         Lobby.create(newLobbySql, (err, lobbyId) => {
           if (err) {
             console.log(err);
+          } else {
+            User.updateById(user.id, {...user, alias: alias, lobbyId: lobbyId, status: 'PLAYER_NOT_READY'}, (err, data) => {
+              if (err) {
+                console.log(err);
+              } else {
+                socket.join(lobbyId, () => {
+                  fn({ lobbyId: lobbyId });
+                });
+              }
+            });
           }
-
-          User.updateById(user.id, {...user, alias: alias, lobbyId: lobbyId, status: 'PLAYER_NOT_READY'}, (err, data) => {
-            if (err) {
-              console.log(err);
-            } else {
-              socket.join(lobbyId, () => {
-                fn({ lobbyId: lobbyId });
-              });
-            }
-          });
         });
       }
     });
@@ -260,8 +259,8 @@ io.on('connection', (socket) => {
               if (err) {
                 console.log(err);
               } else {
-                socket.join(lobbyId, () => {
-                  socket.to(lobbyId).emit('lobbyStatus', lobbyList[lobbyId]);
+                socket.join(lobby.id, () => {
+                  notifiyLobbyUsers();
                   fn({lobbyId: lobbyId});
                 });
               }
@@ -303,77 +302,75 @@ io.on('connection', (socket) => {
   });
 
   socket.on('lobby', (lobbyId, action, message) => {
-    /*
-    if (!(lobbyId in lobbyList && socket.id in lobbyList[lobbyId].players && ['LOBBY_NOT_READY', 'LOBBY_READY', 'GAME_END'].includes(lobbyList[lobbyId].status))) {
-      return;
-    }
-    */
+    Lobby.getById(lobbyId, (err, lobby) => {
+      if (!(['LOBBY_NOT_READY', 'LOBBY_READY', 'GAME_END'].includes(lobby.status))) {
+        return;
+      }
 
-    switch(action) {
-      case 'PLAYER_READY':
-        User.getById(socket.id, (err, user) => {
-            if (err) {
-              console.log(err);
-            } else {
-              User.updateById(user.id, { ...user, status: message.status ? 'PLAYER_READY' : 'PLAYER_NOT_READY' }, (err, data) => {
-                if (err) {
-                  console.log(err);
-                }
-              });
-            }
-        });
-
-        /*
-        let allPlayerReady = true;
-
-        for (let playerId in lobbyList[lobbyId].players) {
-          if (lobbyList[lobbyId].players[playerId].status !== 'PLAYER_READY') {
-            allPlayerReady = false;
-            break
-          }
-        }
-
-        lobbyList[lobbyId].status = allPlayerReady ? 'LOBBY_READY' : 'LOBBY_NOT_READY';
-        */
-
-        break;
-      case 'KICK_PLAYER':
-        if (socket.id === lobbyList[lobbyId].hostId && socket.id !== message.playerId) {
-          if (message.playerId in lobbyList[lobbyId].players) {
-            io.sockets.connected[message.playerId].leave(lobbyId);
-            delete lobbyList[lobbyId].players[message.playerId];
-          }
-        }
-        break;
-      case 'START_GAME':
-      if (socket.id === lobbyList[lobbyId].hostId && Object.keys(lobbyList[lobbyId].players).length >= 4) {
-          if (['LOBBY_READY', 'GAME_END'].includes(lobbyList[lobbyId].status)) {
-            whowolf.initWhoWolfLobby(lobbyId);
-          }
-        }
-        break;
-      default:
-        break;
-    }
-
-    User.getById(socket.id, (err, user) => {
-      if (err) {
-        console.log(err);
-      } else {
-        Lobby.getById(user.lobbyId, (err, lobby) => {
-          if (err) {
-            console.log(err);
-          } else {
-            User.getByLobbyId(lobby.id, (err, users) => {
+      switch(action) {
+        case 'PLAYER_READY':
+          User.getById(socket.id, (err, user) => {
               if (err) {
                 console.log(err);
               } else {
-                io.to(lobby.id).emit('lobbyStatus', { ...lobby, players: users });
+                User.updateById(user.id, { ...user, status: message.status ? 'PLAYER_READY' : 'PLAYER_NOT_READY' }, (err, user) => {
+                  if (err) {
+                    console.log(err);
+                  } else {
+                    User.getByLobbyId(lobby.id, (err, users) => {
+                      if (err) {
+                        console.log(err);
+                      } else {
+                        let allPlayersReady = true;
+                        for (user of users) {
+                          if (user.status !== 'PLAYER_READY') {
+                            allPlayersReady = false;
+                            break;
+                          }
+                        }
+                      }
+
+                      Lobby.updateById(lobby.id, { ...lobby, status: allPlayersReady ? 'LOBBY_READY' : 'LOBBY_NOT_READY' }, (err, id) => {
+                        if (err) {
+                          console.log(err);
+                        } else {
+                          notifiyLobbyUsers();
+                        }
+                      });
+                    });
+                  }
+                });
+              }
+          });
+
+          break;
+        case 'KICK_PLAYER':
+          if (socket.id === lobby.hostId) {
+            console.log(message.playerId);
+            User.getById(message.playerId, (err, kickUser) => {
+              if (kickUser.lobbyId === lobby.id) {
+                User.updateById(kickUser.id, { ...kickUser, lobbyId: null }, (err, kickUser) => {
+                  if (err) {
+                    console.log(err);
+                  } else {
+                    io.sockets.connected[kickUser.id].leave(lobby.id);
+                    notifiyLobbyUsers();
+                  }
+                });
               }
             });
           }
-        });
+          break;
+        case 'START_GAME':
+        if (socket.id === lobby.hostId && ['LOBBY_READY', 'GAME_END'].includes(lobby.status)) {
+            whowolf.initWhoWolfLobby(lobby.id);
+          }
+          break;
+        default:
+          break;
       }
+
+      notifiyLobbyUsers();
     });
   });
 
@@ -440,6 +437,28 @@ io.on('connection', (socket) => {
   socket.on('disconnect', (reason) => {
     console.log(`${socket.id} left because of ${reason}`);
   });
+
+  const notifiyLobbyUsers = () => {
+    User.getById(socket.id, (err, user) => {
+      if (err) {
+        console.log(err);
+      } else {
+        Lobby.getById(user.lobbyId, (err, lobby) => {
+          if (err) {
+            console.log(err);
+          } else {
+            User.getByLobbyId(lobby.id, (err, users) => {
+              if (err) {
+                console.log(err);
+              } else {
+                io.to(lobby.id).emit('lobbyStatus', { ...lobby, players: users });
+              }
+            });
+          }
+        });
+      }
+    });
+  };
 });
 
 
