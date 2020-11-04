@@ -12,67 +12,91 @@ const User = function(user) {
   this.healLeft = user.healLeft;
 };
 
-User.create = (newUser, result) => {
-  db.query(
-    'INSERT INTO user (id, lobby_id, target_player_id, alias, status, role, heal_left) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    Object.values(newUser),
-    (err, res) => {
-      if (err) {
-        result(err, null);
-      } else {
-        result(null, { ...newUser });
+User.create = (newUser) => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      'INSERT INTO user (id, lobby_id, target_player_id, alias, status, role, heal_left) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      Object.values(newUser),
+      (err, res) => {
+        if (err) {
+          reject(err, null);
+        } else {
+          resolve(null, { ...newUser });
+        }
       }
-    }
-  );
+    );
+  });
 };
 
-User.getById = (id, result) => {
-  db.query(`SELECT * FROM user WHERE id = "${id}"`, (err, res) => {
-    if (err) {
-      result(err, null);
-    } else if (res.length) {
-      result(null, camelcaseKeys(res[0]));
-    } else
-      result({ error: 'not_found' }, null);
-    }
-  );
-};
-
-User.updateById = (id, user, result) => {
-  db.query(
-    'UPDATE user SET lobby_id = ?, target_player_id = ?, alias = ?, status = ?, role = ?, heal_left = ? WHERE id = ?',
-    [user.lobbyId, user.targetPlayerId, user.alias, user.status, user.role, user.healLeft, id],
-    (err, res) => {
+User.getById = (id) => {
+  return new Promise((resolve, reject) => {
+    db.query(`SELECT * FROM user WHERE id = "${id}"`, (err, res) => {
       if (err) {
-        result(err, null);
-      } else if (res.affectedRows === 0) {;
-        result({ error: 'not_found' }, null)
-      } else {
-        result(null, { ...user });
+        reject(err);
+      } else if (res.length) {
+        resolve(camelcaseKeys(res[0]));
+      } else
+        reject({ error: 'not_found' });
       }
-    }
-  )
+    );
+  });
 };
 
-User.getByLobbyId = (lobbyId, result) => {
+User.updateById = (id, user) => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      'UPDATE user SET lobby_id = ?, target_player_id = ?, alias = ?, status = ?, role = ?, heal_left = ? WHERE id = ?',
+      [user.lobbyId, user.targetPlayerId, user.alias, user.status, user.role, user.healLeft, id],
+      (err, res) => {
+        if (err) {
+          reject(err);
+        } else if (res.affectedRows === 0) {
+          reject({ error: 'not_found' })
+        } else {
+          resolve({id: id, ...user});
+        }
+      }
+    );
+  });
+};
+
+User.getAllByLobbyId = (lobbyId) => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      'SELECT * FROM user WHERE lobby_id = ?',
+      [lobbyId],
+      (err, res) => {
+        if (err) {
+          reject(err);
+        } else if (res.length) {
+          let players = [];
+          for (player of res) {
+            players.push(camelcaseKeys(player));
+          }
+
+          resolve(players);
+        } else {
+          reject({ error: 'not_found' });
+        }
+      }
+    );
+  });
+};
+
+User.setAllAliveByLobbyId = (lobbyId, result) => {
   db.query(
-    'SELECT * FROM user WHERE lobby_id = ?',
+    'UPDATE user SET status = "PLAYER_ALIVE", role = "PEASENT" WHERE lobby_id = ?',
     [lobbyId],
     (err, res) => {
       if (err) {
         result(err, null);
-      } else if (res.length) {
-        let players = [];
-        for (player of res) {
-          players.push(camelcaseKeys(player));
-        }
-
-        result(null, players);
-      } else {
+      } else if (res.affectedRows === 0) {
         result({ error: 'not_found' }, null);
+      } else {
+        result(null, lobbyId);
       }
     }
-  )
+  );
 };
 
 module.exports = User;

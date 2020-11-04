@@ -8,50 +8,56 @@ const Lobby = function(lobby) {
   this.status = lobby.status;
 };
 
-Lobby.create = (newLobby, result) => {
+Lobby.create = (newLobby) => {
   let id = lobby.makeId(5);
-  db.query(
-    'INSERT INTO lobby (id, host_id, status) VALUES (?, ?, ?)',
-    [id, ...Object.values(newLobby)],
-    (err, res) => {
-      if (err) {
-        result(err, null);
-      } else {
-        result(null, id);
+  return new Promise((resolve, reject) => {
+    db.query(
+      'INSERT INTO lobby (id, host_id, status) VALUES (?, ?, ?)',
+      [id, ...Object.values(newLobby)],
+      (err, res) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ id: id, ...newLobby });
+        }
       }
-    }
-  );
-};
-
-Lobby.getById = (id, result) => {
-  db.query(
-    `SELECT * FROM lobby WHERE id = ?`,
-    [id],
-    (err, res) => {
-    if (err) {
-      result(err, null);
-    } else if (res.length) {
-      result(null, camelcaseKeys(res[0]));
-    } else {
-      result({ error: 'not_found' }, null);
-    }
+    );
   });
 };
 
-Lobby.updateById = (id, lobby, result) => {
-  db.query(
-    'UPDATE lobby SET host_id = ?, status = ? WHERE id = ?',
-    [lobby.hostId, lobby.status, id],
-    (err, res) => {
+Lobby.getById = (id) => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      `SELECT * FROM lobby WHERE id = ?`,
+      [id],
+      (err, res) => {
       if (err) {
-        result(err, null);
-      } else if (res.affectedRows === 0) {;
-        result({ error: 'not_found' }, null)
+        result(err);
+      } else if (res.length) {
+        resolve(camelcaseKeys(res[0]));
       } else {
-        result(null, id);
+        reject({ error: 'not_found' });
       }
-    }
-  )
+    });
+  });
+};
+
+Lobby.updateById = (id, lobby) => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      'UPDATE lobby SET host_id = ?, status = ? WHERE id = ?',
+      [lobby.hostId, lobby.status, id],
+      (err, res) => {
+        if (err) {
+          reject(err);
+        } else if (res.affectedRows === 0) {;
+          reject({ error: 'not_found' })
+        } else {
+          resolve(id);
+        }
+      }
+    )
+  });
 };
 
 module.exports = Lobby;
