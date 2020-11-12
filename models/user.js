@@ -36,7 +36,7 @@ User.getById = (id) => {
       } else if (res.length) {
         resolve(camelcaseKeys(res[0]));
       } else
-        reject({ error: 'not_found' });
+        reject({ error: 'user_not_found' });
       }
     );
   });
@@ -51,7 +51,7 @@ User.updateById = (id, user) => {
         if (err) {
           reject(err);
         } else if (res.affectedRows === 0) {
-          reject({ error: 'not_found' })
+          reject({ error: 'user_not_found' })
         } else {
           resolve({id: id, ...user});
         }
@@ -76,27 +76,29 @@ User.getAllByLobbyId = (lobbyId) => {
 
           resolve(players);
         } else {
-          reject({ error: 'not_found' });
+          reject({ error: 'users_by_lobby_id_not_found' });
         }
       }
     );
   });
 };
 
-User.setAllAliveByLobbyId = (lobbyId, result) => {
-  db.query(
-    'UPDATE user SET status = "PLAYER_ALIVE", role = "PEASENT" WHERE lobby_id = ?',
-    [lobbyId],
-    (err, res) => {
-      if (err) {
-        result(err, null);
-      } else if (res.affectedRows === 0) {
-        result({ error: 'not_found' }, null);
-      } else {
-        result(null, lobbyId);
+User.setAllAliveByLobbyId = (lobbyId) => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      'UPDATE user SET status = "PLAYER_ALIVE", role = "PEASENT" WHERE lobby_id = ?',
+      [lobbyId],
+      (err, res) => {
+        if (err) {
+          reject(err);
+        } else if (res.affectedRows === 0) {
+          reject({ error: 'users_by_lobby_id_not_found' });
+        } else {
+          resolve(lobbyId);
+        }
       }
-    }
-  );
+    );
+  });
 };
 
 module.exports = User;

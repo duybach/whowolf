@@ -32,11 +32,11 @@ Lobby.getById = (id) => {
       [id],
       (err, res) => {
       if (err) {
-        result(err);
+        reject(err);
       } else if (res.length) {
         resolve(camelcaseKeys(res[0]));
       } else {
-        reject({ error: 'not_found' });
+        reject({ error: 'lobby_not_found' });
       }
     });
   });
@@ -51,9 +51,9 @@ Lobby.updateById = (id, lobby) => {
         if (err) {
           reject(err);
         } else if (res.affectedRows === 0) {;
-          reject({ error: 'not_found' })
+          reject({ error: 'lobby_not_found' })
         } else {
-          resolve(id);
+          resolve({ id: id, ...lobby});
         }
       }
     )
