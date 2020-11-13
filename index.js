@@ -7,15 +7,13 @@ const io = require('socket.io')(server);
 const bodyParser = require('body-parser');
 
 const db = require('./loaders/db');
-const lobby = require('./services/lobby');
 
 const User = require('./models/user');
 const Lobby = require('./models/lobby');
 const Game = require('./models/game');
 
-const whowolf = require('./services/whowolf');
-
-let notifiyLobbyUsers;
+const { notifyLobbyUsers } = require('./services/lobby')(io);
+const whowolf = require('./services/whowolf')(io);
 
 const startServer = async () => {
   app.use(cors());
@@ -76,7 +74,7 @@ const startServer = async () => {
       }
 
       socket.join(lobby.id, () => {
-        notifiyLobbyUsers(lobby.id);
+        notifyLobbyUsers(lobby.id);
         fn({lobbyId: lobby.id});
       });
     });
@@ -90,7 +88,7 @@ const startServer = async () => {
         return;
       }
 
-      io.to(lobbyId).emit('chat', { alias: user.alias, chatMessage: chatMessage });
+      io.to(user.lobbyId).emit('chat', { alias: user.alias, chatMessage: chatMessage });
     });
 
     socket.on('lobbyStatus', async (fn) => {
@@ -186,9 +184,9 @@ const startServer = async () => {
           break;
         default:
           break;
-      }
+      }io
 
-      notifiyLobbyUsers(lobby.id);
+      notifyLobbyUsers(lobby.id);
     });
 
     socket.on('game', async (action, message) => {
@@ -217,27 +215,27 @@ const startServer = async () => {
       switch(action) {
         case 'PLAYER_VOTE':
           if (game.round !== 0 && game.phase === 0) {
-              if (userInLobby(users, message.playerId)) {
-                await User.updateById(user.id, { ...user, targetPlayerId : message.playerId});
-              }
+            if (userInLobby(users, message.playerId)) {
+              await User.updateById(user.id, { ...user, targetPlayerId: message.playerId });
+            }
           }
 
           break;
         case 'PLAYER_KILL':
-          if (game.phase === 1 && player.role === 'WERWOLF') {
-              if (userInLobby(users, message.playerId)) {
-                await User.updateById(user.id, { ...user, targetPlayerId : message.playerId});
-              }
+          if (game.phase === 1 && user.role === 'WERWOLF') {
+            if (userInLobby(users, message.playerId)) {
+              await User.updateById(user.id, { ...user, targetPlayerId: message.playerId });
+            }
           }
 
           break;
         case 'PLAYER_HEAL':
           if (game.phase === 2 && user.role === 'WITCH') {
-              if (userInLobby(users, message.playerId)) {
-                if (user.healLeft > 0) {
-                  await User.updateById(user.id, { ...user, targetPlayerId : message.playerId, healLeft: user.healLeft - 1});
-                }
+            if (userInLobby(users, message.playerId)) {
+              if (user.healLeft > 0) {
+                await User.updateById(user.id, { ...user, targetPlayerId: message.playerId });
               }
+            }
           }
 
           break;
@@ -247,42 +245,18 @@ const startServer = async () => {
 
       let lobby;
       try {
-        lobby = Lobby.getById(user.lobbyId);
+        lobby = await Lobby.getById(user.lobbyId);
       } catch(e) {
         console.log(e);
         return;
       }
 
-      notifiyLobbyUsers(lobby.id);
+      notifyLobbyUsers(lobby.id);
     });
 
     socket.on('disconnect', (reason) => {
       console.log(`${socket.id} left because of ${reason}`);
     });
-
-    notifiyLobbyUsers = async (lobbyId) => {
-      let lobby;
-      let users;
-      try {
-        lobby = await Lobby.getById(lobbyId);
-        users = await User.getAllByLobbyId(lobby.id);
-      } catch(e) {
-        console.log(e);
-        return
-      }
-
-      let game;
-      try {
-        game = await Game.getByLobbyId(lobby.id);
-      } catch(e) {
-          io.to(lobby.id).emit('lobbyStatus', { ...lobby, players: users });
-          return;
-      }
-
-      io.to(lobby.id).emit('lobbyStatus', { ...lobby, players: users, game: game });
-
-      console.log('NOTIFIY IS DONE');
-    };
   });
 
   server.listen(port, () => {
@@ -291,7 +265,3 @@ const startServer = async () => {
 };
 
 startServer();
-
-module.exports = {
-  notifiyLobbyUsers: notifiyLobbyUsers
-}

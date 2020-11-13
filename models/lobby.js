@@ -1,7 +1,7 @@
 const camelcaseKeys = require('camelcase-keys')
 
 const db = require('../loaders/db');
-const lobby = require('../services/lobby');
+const { makeId } = require('../services/function');
 
 const Lobby = function(lobby) {
   this.hostId = lobby.hostId;
@@ -9,7 +9,7 @@ const Lobby = function(lobby) {
 };
 
 Lobby.create = (newLobby) => {
-  let id = lobby.makeId(5);
+  let id = makeId(5);
   return new Promise((resolve, reject) => {
     db.query(
       'INSERT INTO lobby (id, host_id, status) VALUES (?, ?, ?)',

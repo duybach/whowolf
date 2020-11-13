@@ -1,13 +1,31 @@
-const makeId = (length) => {
-  let result = '';
-  let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let charactersLength = characters.length;
-  for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * charactersLength));
-  }
-  return result;
-};
+const Lobby = require('../models/lobby');
+const Game = require('../models/game');
+const User = require('../models/user');
 
-module.exports = {
-  makeId: makeId
+module.exports = (io) => {
+  let lobby = {};
+
+  lobby.notifyLobbyUsers = async (lobbyId) => {
+    let lobby;
+    let users;
+    try {
+      lobby = await Lobby.getById(lobbyId);
+      users = await User.getAllByLobbyId(lobby.id);
+    } catch(e) {
+      console.log(e);
+      return
+    }
+
+    let game;
+    try {
+      game = await Game.getByLobbyId(lobby.id);
+    } catch(e) {
+        io.to(lobby.id).emit('lobbyStatus', { ...lobby, players: users });
+        return;
+    }
+
+    io.to(lobby.id).emit('lobbyStatus', { ...lobby, players: users, game: game });
+  };
+
+  return lobby;
 };
