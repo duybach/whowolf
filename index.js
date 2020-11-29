@@ -14,16 +14,11 @@ const Game = require('./models/game');
 
 const { notifyLobbyUsers } = require('./services/lobby')(io);
 const whowolf = require('./services/whowolf')(io);
+const { userInLobby } = require('./services/function');
 
-const startServer = async () => {
+const startServer = () => {
   app.use(cors());
   app.use(bodyParser.json());
-
-  const userInLobby = (users, userId) => {
-    return users.some((user) => {
-      return user.id === userId;
-    });
-  };
 
   io.on('connection', async (socket) => {
     console.log('a user connected');
@@ -173,6 +168,12 @@ const startServer = async () => {
 
               io.sockets.connected[kickUser.id].leave(lobby.id);
             }
+          }
+
+          break;
+        case 'LOBBY_SETTING':
+          if (socket.id === lobby.hostId && ['LOBBY_READY', 'GAME_END'].includes(lobby.status)) {
+
           }
 
           break;

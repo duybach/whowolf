@@ -2,7 +2,7 @@ const Lobby = require('../models/lobby');
 const Game = require('../models/game');
 const User = require('../models/user');
 
-const nextPhase = async (lobbyId) => {
+const nextPhase = (lobbyId) => {
   return new Promise(async (resolve, reject) => {
     let lobby;
     let users;
@@ -18,6 +18,13 @@ const nextPhase = async (lobbyId) => {
 
     if (game.phase === 0) {
       await calcEndOfDay(lobby.id);
+
+      try {
+        game = await Game.getByLobbyId(lobby.id);
+      } catch(e) {
+        console.log(e);
+        return;
+      }
 
       game.phase++;
     } else if (game.phase === 1) {
@@ -45,24 +52,29 @@ const nextPhase = async (lobbyId) => {
         }
       }
 
-      console.log(targetPlayerId)
+      console.log(`Phase 1 target: ${targetPlayerId}`);
 
-      if (targetPlayerId) {
+      if (targetPlayerId !== 'null') {
         game.werwolfTarget = targetPlayerId;
+        game.phase++;
+      } else {
+        game.round++;
+        game.phase = 0;
       }
-
-      game.phase++;
     } else if (game.phase === 2) {
       for (user of users) {
-        if (!(user.role === 'WITCH' && user.healLeft > 0)) {
+        if (!(user.role === 'WITCH' && user.healLeft > 0 && user.targetPlayerId !== null)) {
           continue;
         }
 
-        user.witchTarget = user.targetPlayerId;
+        console.log(`Phase 2 target: ${user.targetPlayerId}`);
+
+        game.witchTarget = user.targetPlayerId;
         user.healLeft--;
 
         try {
           await User.updateById(user.id, user);
+          await Game.updateById(game.id, game)
         } catch(e) {
           console.log(e);
           return;
@@ -70,23 +82,36 @@ const nextPhase = async (lobbyId) => {
         break;
       }
 
-      calcEndOfNight(lobbyId);
+      try {
+        await calcEndOfNight(lobbyId);
+        game = await Game.getById(game.id);
+      } catch(e) {
+        console.log(e);
+        return;
+      }
 
       game.round++;
       game.phase = 0;
     }
 
+    if (game.teamWon !== null) {
+      resolve();
+      return;
+    }
+
     game.timeLeft = 30;
     try {
       await Game.updateById(game.id, game);
+      users = await User.getAllByLobbyId(lobby.id);
     } catch(e) {
       console.log(e);
       return;
     }
 
     for (user of users) {
+      user.targetPlayerId = null;
       try {
-        await User.updateById(user.id, { ...user, targetPlayerId: null });
+        await User.updateById(user.id, user);
       } catch(e) {
         console.log(e);
         return;
@@ -97,7 +122,7 @@ const nextPhase = async (lobbyId) => {
   });
 }
 
-const calcEndOfDay = async (lobbyId) => {
+const calcEndOfDay = (lobbyId) => {
   return new Promise(async (resolve, reject) => {
     let users;
     try {
@@ -125,10 +150,13 @@ const calcEndOfDay = async (lobbyId) => {
       }
     }
 
+    console.log(`Phase 0 target: ${targetPlayerId}`);
+
     if (targetPlayerId) {
       try {
         let user = await User.getById(targetPlayerId);
-        await User.updateById(user.id, { ...user, status:'PLAYER_DEAD' });
+        user.status = 'PLAYER_DEAD';
+        await User.updateById(user.id, user);
       } catch(e) {
         console.log(targetPlayerId);
         console.log(e);
@@ -142,32 +170,49 @@ const calcEndOfDay = async (lobbyId) => {
   });
 }
 
-const calcEndOfNight = async (lobbyId) => {
-  let game;
-  try {
-    game = await Game.getByLobbyId(lobbyId);
-  } catch(e) {
-    console.log(e);
-    return;
-  }
-
-  if (game.werwolfTarget !== game.witchTarget) {
+const calcEndOfNight = (lobbyId) => {
+  return new Promise(async (resolve, reject) => {
+    let game;
     try {
-      let user = await User.getById(game.werwolfTarget);
-      await User.updateById(user.id, { ...user, status: 'PLAYER_DEAD' });
+      game = await Game.getByLobbyId(lobbyId);
     } catch(e) {
       console.log(e);
       return;
     }
-  }
 
-  game.werwolfTarget = null;
-  game.witchTarget = null;
+    console.log(game.werwolfTarget);
+    console.log(game.witchTarget);
 
-  await calcGameResult(lobbyId);
+    if (game.werwolfTarget !== game.witchTarget) {
+      try {
+        let user = await User.getById(game.werwolfTarget);
+        user.status = 'PLAYER_DEAD';
+        await User.updateById(user.id, user);
+        console.log(`killed player ${user.id}`)
+      } catch(e) {
+        console.log(e);
+        reject();
+        return;
+      }
+    }
+
+    game.werwolfTarget = null;
+    game.witchTarget = null;
+
+    try {
+      await Game.updateById(game.id, game);
+      await calcGameResult(lobbyId);
+    } catch (e) {
+      console.log(e);
+      reject();
+      return;
+    }
+
+    resolve();
+  });
 }
 
-const calcGameResult = async (lobbyId) => {
+const calcGameResult = (lobbyId) => {
   return new Promise(async (resolve, reject) => {
     let amountWerwolfPlayers = 0;
     let amountTownPlayers = 0;
@@ -202,13 +247,16 @@ const calcGameResult = async (lobbyId) => {
   });
 }
 
-const endGame = async (lobbyId, teamWon) => {
+const endGame = (lobbyId, teamWon) => {
   return new Promise(async (resolve, reject) => {
     try {
       lobby = await Lobby.getById(lobbyId);
+      lobby.status = 'GAME_END';
       game = await Game.getByLobbyId(lobby.id);
-      await Lobby.updateById(lobby.id, { ...lobby, status: 'GAME_END' });
-      await Game.updateById(game.id, { ...game, teamWon: teamWon });
+      game.teamWon = teamWon;
+
+      await Lobby.updateById(lobby.id, lobby);
+      await Game.updateById(game.id, game);
     } catch(e) {
       console.log(e);
       return;
@@ -230,16 +278,19 @@ module.exports = (io) => {
       let users;
       try {
         lobby = await Lobby.getById(lobbyId);
-        await Lobby.updateById(lobby.id, { ...lobby, status: 'GAME' });
+        lobby.status = 'GAME';
+
+        await Lobby.updateById(lobby.id, lobby);
         game = await Game.create(
           new Game({
             lobbyId: lobby.id,
             werwolfTarget: null,
+            witchTarget: null,
             round: 0,
             phase: 0,
             timeLeft: 30,
             amountWerwolfPlayers: 1,
-            amountWitchPlayers: 0,
+            amountWitchPlayers: 1,
             teamWon: null
           })
         );
@@ -253,18 +304,24 @@ module.exports = (io) => {
       let i = 0;
       let j = 0;
       while (i < game.amountWerwolfPlayers || j < game.amountWitchPlayers) {
+        console.log('Adding role ...');
+
         let index = Math.floor(Math.random() * users.length);
         if (i < game.amountWerwolfPlayers && users[index].role === 'PEASENT') {
+          users[index].role = 'WERWOLF'
           try {
-            await User.updateById(users[index].id, { ...users[index], role: 'WERWOLF' });
+            await User.updateById(users[index].id, users[index]);
           } catch(e) {
             console.log(e);
             reject();
           }
           i++;
         } else if (j < game.amountWitchPlayers && users[index].role === 'PEASENT') {
+          users[index].role = 'WITCH';
+          users[index].healLeft = 1;
+
           try {
-            await User.updateById(users[index].id, { ...users[index], role: 'WITCH' });
+            await User.updateById(users[index].id, users[index]);
           } catch(e) {
             console.log(e);
             reject();
@@ -275,7 +332,8 @@ module.exports = (io) => {
 
       const lobbyIntervalId = setInterval(async () => {
         try {
-          game = await Game.updateById(game.id, { ...game, timeLeft: game.timeLeft - 1 });
+          game.timeLeft -= 1
+          game = await Game.updateById(game.id, game);
         } catch(e) {
           console.log(e);
           return;

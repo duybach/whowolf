@@ -8,6 +8,13 @@ const makeId = (length) => {
   return result;
 };
 
+const userInLobby = (users, userId) => {
+  return users.some((user) => {
+    return user.id === userId;
+  });
+};
+
 module.exports = {
-  makeId: makeId
+  makeId: makeId,
+  userInLobby: userInLobby
 };
