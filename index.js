@@ -43,10 +43,16 @@ const startServer = () => {
 
         lobby = await Lobby.create(new Lobby({
           hostId: user.id,
-          status: 'LOBBY_NOT_READY'
+          status: 'LOBBY_NOT_READY',
+          timeLeft: 30,
+          amountWerwolfPlayers: 1
         }));
 
-        await User.updateById(user.id, {...user, alias: alias, lobbyId: lobby.id, status: 'PLAYER_NOT_READY'});
+        user.alias = alias;
+        user.lobbyId = lobby.id;
+        user.status = 'PLAYER_NOT_READY';
+
+        await User.updateById(user.id, user);
       } catch(e) {
         console.log(e);
         return;
@@ -62,7 +68,12 @@ const startServer = () => {
       try {
         lobby = await Lobby.getById(lobbyId);
         let user = await User.getById(socket.id);
-        await User.updateById(user.id, { ...user, alias: alias, lobbyId: lobby.id, status: 'PLAYER_NOT_READY'});
+
+        user.alias = alias;
+        user.lobbyId = lobby.id;
+        user.status = 'PLAYER_NOT_READY';
+
+        await User.updateById(user.id, user);
       } catch(e) {
         console.log(e);
         return;
@@ -124,8 +135,11 @@ const startServer = () => {
       switch(action) {
         case 'PLAYER_READY':
           let users;
+
+          user.status = message.status ? 'PLAYER_READY' : 'PLAYER_NOT_READY';
+
           try {
-            await User.updateById(user.id, { ...user, status: message.status ? 'PLAYER_READY' : 'PLAYER_NOT_READY' });
+            await User.updateById(user.id, user);
             users = await User.getAllByLobbyId(lobby.id);
           } catch(e) {
             console.log(e);
@@ -140,8 +154,10 @@ const startServer = () => {
             }
           }
 
+          lobby.status = allPlayersReady ? 'LOBBY_READY' : 'LOBBY_NOT_READY';
+
           try {
-            await Lobby.updateById(lobby.id, { ...lobby, status: allPlayersReady ? 'LOBBY_READY' : 'LOBBY_NOT_READY' });
+            await Lobby.updateById(lobby.id, lobby);
           } catch(e) {
             console.log(e);
             return;
@@ -159,13 +175,16 @@ const startServer = () => {
             }
 
             if (kickUser.lobbyId === lobby.id) {
+              kickUser.lobbyId = null;
+
               try {
-                await User.updateById(kickUser.id, { ...kickUser, lobbyId: null });
+                await User.updateById(kickUser.id, kickUser);
               } catch(e) {
                 console.log(e);
                 return;
               }
 
+              io.sockets.connected[kickUser.id].emit('kicked', {});
               io.sockets.connected[kickUser.id].leave(lobby.id);
             }
           }
@@ -173,7 +192,15 @@ const startServer = () => {
           break;
         case 'LOBBY_SETTING':
           if (socket.id === lobby.hostId && ['LOBBY_READY', 'GAME_END'].includes(lobby.status)) {
+            lobby.timeLeft = message.timeLeft;
+            lobby.amountWerwolfPlayers = message.amountWerwolfPlayers;
 
+            try {
+              await Lobby.updateById(lobby.id, lobby);
+            } catch(e) {
+              console.log(e);
+              return;
+            }
           }
 
           break;
@@ -217,7 +244,8 @@ const startServer = () => {
         case 'PLAYER_VOTE':
           if (game.round !== 0 && game.phase === 0) {
             if (userInLobby(users, message.playerId)) {
-              await User.updateById(user.id, { ...user, targetPlayerId: message.playerId });
+              user.targetPlayerId = message.playerId;
+              await User.updateById(user.id, user);
             }
           }
 
@@ -225,7 +253,8 @@ const startServer = () => {
         case 'PLAYER_KILL':
           if (game.phase === 1 && user.role === 'WERWOLF') {
             if (userInLobby(users, message.playerId)) {
-              await User.updateById(user.id, { ...user, targetPlayerId: message.playerId });
+              user.targetPlayerId = message.playerId;
+              await User.updateById(user.id, user);
             }
           }
 
@@ -234,7 +263,8 @@ const startServer = () => {
           if (game.phase === 2 && user.role === 'WITCH') {
             if (userInLobby(users, message.playerId)) {
               if (user.healLeft > 0) {
-                await User.updateById(user.id, { ...user, targetPlayerId: message.playerId });
+                user.targetPlayerId = message.playerId;
+                await User.updateById(user.id, user);
               }
             }
           }

@@ -1,1 +1,4 @@
 # whowolf
+
+TODO
+Sequelizer

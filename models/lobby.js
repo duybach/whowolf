@@ -6,13 +6,15 @@ const { makeId } = require('../services/function');
 const Lobby = function(lobby) {
   this.hostId = lobby.hostId;
   this.status = lobby.status;
+  this.timeLeft = lobby.timeLeft;
+  this.amountWerwolfPlayers = lobby.amountWerwolfPlayers;
 };
 
 Lobby.create = (newLobby) => {
   let id = makeId(5);
   return new Promise((resolve, reject) => {
     db.query(
-      'INSERT INTO lobby (id, host_id, status) VALUES (?, ?, ?)',
+      'INSERT INTO lobby (id, host_id, status, time_left, amount_werwolf_players) VALUES (?, ?, ?, ?, ?)',
       [id, ...Object.values(newLobby)],
       (err, res) => {
         if (err) {
@@ -45,8 +47,8 @@ Lobby.getById = (id) => {
 Lobby.updateById = (id, lobby) => {
   return new Promise((resolve, reject) => {
     db.query(
-      'UPDATE lobby SET host_id = ?, status = ? WHERE id = ?',
-      [lobby.hostId, lobby.status, id],
+      'UPDATE lobby SET host_id = ?, status = ?, time_left = ?, amount_werwolf_players = ? WHERE id = ?',
+      [lobby.hostId, lobby.status, lobby.timeLeft, lobby.amountWerwolfPlayers, id],
       (err, res) => {
         if (err) {
           reject(err);

@@ -288,8 +288,8 @@ module.exports = (io) => {
             witchTarget: null,
             round: 0,
             phase: 0,
-            timeLeft: 30,
-            amountWerwolfPlayers: 1,
+            timeLeft: lobby.timeLeft,
+            amountWerwolfPlayers: lobby.amountWerwolfPlayers,
             amountWitchPlayers: 1,
             teamWon: null
           })
