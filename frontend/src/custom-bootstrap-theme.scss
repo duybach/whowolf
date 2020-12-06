@@ -1,0 +1,20 @@
+// @import url('https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&display=swap');
+
+$body-bg: #333533;
+$body-color: #e8eddf;
+$font-family-sans-serif: 'Amatic SC', cursive;
+$primary: #cfdbd5;
+
+.btn {
+  color: $body-bg !important;
+}
+
+.list-group-item {
+  color: $body-bg !important;
+}
+
+.list-group-item button {
+    float: right;
+}
+
+@import "bootstrap/scss/bootstrap";
