@@ -83,10 +83,22 @@ const Lobby = ({ socket, lobby, dispatch }) => {
           <h1>Lobby {lobby.id}</h1>
 
           <h3>
+            Game: Werwolf
+          </h3>
+
+          <h3>
             Host: {hostAlias}
           </h3>
 
-          {socket.id === lobby.hostId ? <div><LobbySetting /></div> : ''}
+          <h3>
+            Time per Round: {lobby.timeLeft}
+          </h3>
+
+          <h3>
+              Amount of Werwolf Players: {lobby.amountWerwolfPlayers}
+          </h3>
+
+          {socket.id === lobby.hostId ? <div className="mb-3"><LobbySetting /></div> : ''}
 
           <ListGroup>
             {

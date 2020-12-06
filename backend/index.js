@@ -194,8 +194,19 @@ const startServer = () => {
           break;
         case 'LOBBY_SETTING':
           if (socket.id === lobby.hostId && ['LOBBY_NOT_READY', 'LOBBY_READY', 'GAME_END'].includes(lobby.status)) {
-            lobby.timeLeft = Math.max(message.timeLeft, 30);
-            lobby.amountWerwolfPlayers = Math.max(message.amountWerwolfPlayers, 1);
+            let users;
+
+            try {
+              users = await User.getAllByLobbyId(lobby.id);
+            } catch(e) {
+              console.log(e);
+              return;
+            }
+
+            console.log(users.length);
+
+            lobby.timeLeft = Math.min(90, Math.max(message.timeLeft, 30));
+            lobby.amountWerwolfPlayers = Math.min(Math.floor(users.length / 2), Math.max(message.amountWerwolfPlayers, 1));
 
             try {
               await Lobby.updateById(lobby.id, lobby);
