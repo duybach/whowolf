@@ -4,12 +4,19 @@ import { Link } from 'react-router-dom';
 import Button from 'react-bootstrap/Button';
 import Col from 'react-bootstrap/Col';
 import Container from 'react-bootstrap/Container';
+import Image from 'react-bootstrap/Image';
 import Row from 'react-bootstrap/Row';
 
 class Home extends React.Component {
   render() {
     return (
       <Container>
+        <Row>
+          <Col xs={{ span: 6, offset: 3}}>
+            <Image src="image.jpeg" fluid />
+          </Col>
+        </Row>
+
         <Row>
           <Col>
             <h1 className="text-center">WhoWolf</h1>

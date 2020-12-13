@@ -63,6 +63,8 @@ const LobbySetting = ({ socket, lobby }) => {
               <Form.Label>Amount Werwolf Players</Form.Label>
               <Form.Control type="number" defaultValue={amountWerwolfPlayers} min="1" max={Math.max(1, Math.floor(lobby.players.length / 2))} onChange={e => setAmountWerwolfPlayers(e.target.value)} />
             </Form.Group>
+
+            <Form.Check type="checkbox" id="seer" label="Seer" />
           </Form>
         </Modal.Body>
         <Modal.Footer>

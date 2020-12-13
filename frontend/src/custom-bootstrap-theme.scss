@@ -17,4 +17,8 @@ $primary: #cfdbd5;
     float: right;
 }
 
+.modal-content {
+  background-color: $body-bg !important;
+}
+
 @import "bootstrap/scss/bootstrap";
