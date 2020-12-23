@@ -11,6 +11,8 @@ import { faSlidersH } from '@fortawesome/free-solid-svg-icons';
 const LobbySetting = ({ socket, lobby }) => {
   const [timeLeft, setTimeLeft] = useState(30);
   const [amountWerwolfPlayers, setAmountWerwolfPlayers] = useState(1);
+  const [witch, setWitch] = useState(true);
+  const [seer, setSeer] = useState(false);
   const [showSetting, setShowSetting] = useState(false);
 
   const handleShowSetting = () => setShowSetting(true);
@@ -19,7 +21,9 @@ const LobbySetting = ({ socket, lobby }) => {
   const updateSettings = () => {
     socket.emit('lobby', 'LOBBY_SETTING', {
       timeLeft: timeLeft,
-      amountWerwolfPlayers: amountWerwolfPlayers
+      amountWerwolfPlayers: amountWerwolfPlayers,
+      witch: witch,
+      seer: seer
     });
 
     setShowSetting(false);
@@ -28,6 +32,10 @@ const LobbySetting = ({ socket, lobby }) => {
   useEffect(() => {
     setTimeLeft(lobby.timeLeft);
     setAmountWerwolfPlayers(lobby.amountWerwolfPlayers);
+    setWitch(lobby.witch ? true : false);
+    setSeer(lobby.seer ? true : false);
+    console.log(lobby.witch);
+    console.log(witch);
   }, [lobby]);
 
   return (
@@ -49,10 +57,10 @@ const LobbySetting = ({ socket, lobby }) => {
           <Form>
             <Form.Group>
               <Form.Label>Game</Form.Label>
-              <Form.Control as="select">
-                <option selected>Werwolf</option>
-                <option disabled>Secret Hitler</option>
-                <option disabled>Spyfall</option>
+              <Form.Control as="select" defaultValue="0">
+                <option value="0">Werwolf</option>
+                <option value="1" disabled>Secret Hitler</option>
+                <option value="2" disabled>Spyfall</option>
               </Form.Control>
             </Form.Group>
             <Form.Group controlId="formTimeLeft">
@@ -64,7 +72,9 @@ const LobbySetting = ({ socket, lobby }) => {
               <Form.Control type="number" defaultValue={amountWerwolfPlayers} min="1" max={Math.max(1, Math.floor(lobby.players.length / 2))} onChange={e => setAmountWerwolfPlayers(e.target.value)} />
             </Form.Group>
 
-            <Form.Check type="checkbox" id="seer" label="Seer" />
+            <Form.Check type="checkbox" checked={witch} label="Witch" onClick={e => setWitch(!witch)} />
+
+            <Form.Check type="checkbox" checked={seer} label="Seer" onClick={e => setSeer(!seer)} />
           </Form>
         </Modal.Body>
         <Modal.Footer>

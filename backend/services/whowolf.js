@@ -57,7 +57,11 @@ const nextPhase = (lobbyId) => {
       if (targetPlayerId !== 'null') {
         game.werwolfTarget = targetPlayerId;
         game.phase++;
+          // TODO check if witch alive
       } else {
+        // If werwolf did not attack anyone skip witch
+        // TODO check if seer alive
+
         game.round++;
         game.phase = 0;
       }
@@ -290,7 +294,8 @@ module.exports = (io) => {
             phase: 0,
             timeLeft: lobby.timeLeft,
             amountWerwolfPlayers: lobby.amountWerwolfPlayers,
-            amountWitchPlayers: 1,
+            amountWitchPlayers: lobby.witch ? 1 : 0,
+            amountSeerPlayers: lobby.seer ? 1 : 0,
             teamWon: null
           })
         );
@@ -303,7 +308,8 @@ module.exports = (io) => {
 
       let i = 0;
       let j = 0;
-      while (i < game.amountWerwolfPlayers || j < game.amountWitchPlayers) {
+      let k = 0;
+      while (i < game.amountWerwolfPlayers || j < game.amountWitchPlayers || k < game.amountSeerPlayers) {
         console.log('Adding role ...');
 
         let index = Math.floor(Math.random() * users.length);
@@ -327,6 +333,16 @@ module.exports = (io) => {
             reject();
           }
           j++;
+        } else if (k < game.amountSeerPlayers && users[index].role === 'PEASENT') {
+          users[index].role = 'SEER';
+
+          try {
+            await User.updateById(users[index].id, users[index]);
+          } catch(e) {
+            console.log(e);
+            reject();
+          }
+          k++;
         }
       }
 

@@ -113,7 +113,7 @@ const Lobby = ({ socket, lobby, dispatch }) => {
         </Col>
       </Row>
 
-      <Row className="mt-3">
+      <Row className="my-3">
         <Col>
           <Button variant={playerReady ? 'danger' : 'primary'} onClick={() => setPlayerStatus(!(playerReady))} block>{playerReady ? 'Not ready' : 'Ready'}</Button>
         </Col>

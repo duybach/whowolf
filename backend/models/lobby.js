@@ -8,13 +8,15 @@ const Lobby = function(lobby) {
   this.status = lobby.status;
   this.timeLeft = lobby.timeLeft;
   this.amountWerwolfPlayers = lobby.amountWerwolfPlayers;
+  this.witch = lobby.witch;
+  this.seer = lobby.seer;
 };
 
 Lobby.create = (newLobby) => {
   let id = makeId(5);
   return new Promise((resolve, reject) => {
     db.query(
-      'INSERT INTO lobby (id, host_id, status, time_left, amount_werwolf_players) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO lobby (id, host_id, status, time_left, amount_werwolf_players, witch, seer) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, ...Object.values(newLobby)],
       (err, res) => {
         if (err) {
@@ -47,8 +49,8 @@ Lobby.getById = (id) => {
 Lobby.updateById = (id, lobby) => {
   return new Promise((resolve, reject) => {
     db.query(
-      'UPDATE lobby SET host_id = ?, status = ?, time_left = ?, amount_werwolf_players = ? WHERE id = ?',
-      [lobby.hostId, lobby.status, lobby.timeLeft, lobby.amountWerwolfPlayers, id],
+      'UPDATE lobby SET host_id = ?, status = ?, time_left = ?, amount_werwolf_players = ?, witch = ?, seer = ? WHERE id = ?',
+      [lobby.hostId, lobby.status, lobby.timeLeft, lobby.amountWerwolfPlayers, lobby.witch, lobby.seer, id],
       (err, res) => {
         if (err) {
           reject(err);

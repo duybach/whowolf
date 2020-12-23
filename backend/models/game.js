@@ -11,13 +11,14 @@ const Game = function(game) {
   this.timeLeft = game.timeLeft;
   this.amountWerwolfPlayers = game.amountWerwolfPlayers;
   this.amountWitchPlayers = game.amountWitchPlayers;
+  this.amountSeerPlayers = game.amountSeerPlayers;
   this.teamWon = game.teamWon;
 };
 
 Game.create = (newGame) => {
   return new Promise((resolve, reject) => {
     db.query(
-      'INSERT INTO game (lobby_id, werwolf_target, witch_target, round, phase, time_left, amount_werwolf_players, amount_witch_players, team_won) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO game (lobby_id, werwolf_target, witch_target, round, phase, time_left, amount_werwolf_players, amount_witch_players, amount_witch_players, team_won) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       Object.values(newGame),
       (err, res) => {
         if (err) {
@@ -61,8 +62,8 @@ Game.getByLobbyId = (id) => {
 Game.updateById = (id, game) => {
   return new Promise((resolve, reject) => {
     db.query(
-      'UPDATE game SET lobby_id = ?, werwolf_target = ?, witch_target = ?, round = ?, phase = ?, time_left = ?, amount_werwolf_players = ?, amount_witch_players = ?, team_won = ? WHERE id = ?',
-      [game.lobbyId, game.werwolfTarget, game.witchTarget, game.round, game.phase, game.timeLeft, game.amountWerwolfPlayers, game.amountWitchPlayers, game.teamWon, id],
+      'UPDATE game SET lobby_id = ?, werwolf_target = ?, witch_target = ?, round = ?, phase = ?, time_left = ?, amount_werwolf_players = ?, amount_witch_players = ?, amount_seer_players = ?, team_won = ? WHERE id = ?',
+      [game.lobbyId, game.werwolfTarget, game.witchTarget, game.round, game.phase, game.timeLeft, game.amountWerwolfPlayers, game.amountWitchPlayers, game.amountSeerPlayers, game.teamWon, id],
       (err, res) => {
         if (err) {
           reject(err);

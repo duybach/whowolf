@@ -45,7 +45,9 @@ const startServer = () => {
           hostId: user.id,
           status: 'LOBBY_NOT_READY',
           timeLeft: 30,
-          amountWerwolfPlayers: 1
+          amountWerwolfPlayers: 1,
+          witch: true,
+          seer: false
         }));
 
         user.alias = alias;
@@ -203,10 +205,10 @@ const startServer = () => {
               return;
             }
 
-            console.log(users.length);
-
             lobby.timeLeft = Math.min(90, Math.max(message.timeLeft, 30));
             lobby.amountWerwolfPlayers = Math.min(Math.floor(users.length / 2), Math.max(message.amountWerwolfPlayers, 1));
+            lobby.witch = message.witch ? true : false;
+            lobby.seer = message.seer ? true : false;
 
             try {
               await Lobby.updateById(lobby.id, lobby);
