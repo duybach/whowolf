@@ -333,111 +333,111 @@ const endGame = (lobbyId, teamWon) => {
   });
 }
 
-module.exports = (io) => {
-  const { notifyLobbyUsers } = require('./lobby')(io);
+initWhoWolfLobby = (socket, lobbyId) => {
+  return new Promise(async (resolve, reject) => {
+    let lobby;
+    let game;
+    let users;
+    try {
+      lobby = await Lobby.getById(lobbyId);
+      lobby.status = 'GAME';
 
-  let whowolf = {};
+      await Lobby.updateById(lobby.id, lobby);
+      game = await Game.create(
+        new Game({
+          lobbyId: lobby.id,
+          werwolfTarget: null,
+          witchTarget: null,
+          round: 0,
+          phase: 0,
+          timeLeft: lobby.timeLeft,
+          amountWerwolfPlayers: lobby.amountWerwolfPlayers,
+          amountWitchPlayers: lobby.witch ? 1 : 0,
+          amountSeerPlayers: lobby.seer ? 1 : 0,
+          teamWon: null
+        })
+      );
+      await User.setAllAliveByLobbyId(lobby.id);
+      users = await User.getAllByLobbyId(lobby.id);
+    } catch(e) {
+      console.log(e);
+      reject();
+    }
 
-  whowolf.initWhoWolfLobby = (socket, lobbyId) => {
-    return new Promise(async (resolve, reject) => {
-      let lobby;
-      let game;
-      let users;
+    let i = 0;
+    let j = 0;
+    let k = 0;
+    while (i < game.amountWerwolfPlayers || j < game.amountWitchPlayers || k < game.amountSeerPlayers) {
+      console.log('Adding role ...');
+
+      let index = Math.floor(Math.random() * users.length);
+      if (i < game.amountWerwolfPlayers && users[index].role === 'PEASENT') {
+        users[index].role = 'WERWOLF'
+        try {
+          await User.updateById(users[index].id, users[index]);
+        } catch(e) {
+          console.log(e);
+          reject();
+        }
+        i++;
+      } else if (j < game.amountWitchPlayers && users[index].role === 'PEASENT') {
+        users[index].role = 'WITCH';
+        users[index].actionLeft = 1;
+
+        try {
+          await User.updateById(users[index].id, users[index]);
+        } catch(e) {
+          console.log(e);
+          reject();
+        }
+        j++;
+      } else if (k < game.amountSeerPlayers && users[index].role === 'PEASENT') {
+        users[index].role = 'SEER';
+
+        try {
+          await User.updateById(users[index].id, users[index]);
+        } catch(e) {
+          console.log(e);
+          reject();
+        }
+        k++;
+      }
+    }
+
+    const lobbyIntervalId = setInterval(async () => {
       try {
-        lobby = await Lobby.getById(lobbyId);
-        lobby.status = 'GAME';
-
-        await Lobby.updateById(lobby.id, lobby);
-        game = await Game.create(
-          new Game({
-            lobbyId: lobby.id,
-            werwolfTarget: null,
-            witchTarget: null,
-            round: 0,
-            phase: 0,
-            timeLeft: lobby.timeLeft,
-            amountWerwolfPlayers: lobby.amountWerwolfPlayers,
-            amountWitchPlayers: lobby.witch ? 1 : 0,
-            amountSeerPlayers: lobby.seer ? 1 : 0,
-            teamWon: null
-          })
-        );
-        await User.setAllAliveByLobbyId(lobby.id);
-        users = await User.getAllByLobbyId(lobby.id);
+        game.timeLeft -= 1
+        game = await Game.updateById(game.id, game);
       } catch(e) {
         console.log(e);
-        reject();
+        return;
       }
 
-      let i = 0;
-      let j = 0;
-      let k = 0;
-      while (i < game.amountWerwolfPlayers || j < game.amountWitchPlayers || k < game.amountSeerPlayers) {
-        console.log('Adding role ...');
+      if (game.timeLeft <= 0) {
+        await nextPhase(lobby.id, io);
 
-        let index = Math.floor(Math.random() * users.length);
-        if (i < game.amountWerwolfPlayers && users[index].role === 'PEASENT') {
-          users[index].role = 'WERWOLF'
-          try {
-            await User.updateById(users[index].id, users[index]);
-          } catch(e) {
-            console.log(e);
-            reject();
-          }
-          i++;
-        } else if (j < game.amountWitchPlayers && users[index].role === 'PEASENT') {
-          users[index].role = 'WITCH';
-          users[index].actionLeft = 1;
-
-          try {
-            await User.updateById(users[index].id, users[index]);
-          } catch(e) {
-            console.log(e);
-            reject();
-          }
-          j++;
-        } else if (k < game.amountSeerPlayers && users[index].role === 'PEASENT') {
-          users[index].role = 'SEER';
-
-          try {
-            await User.updateById(users[index].id, users[index]);
-          } catch(e) {
-            console.log(e);
-            reject();
-          }
-          k++;
-        }
-      }
-
-      const lobbyIntervalId = setInterval(async () => {
         try {
-          game.timeLeft -= 1
-          game = await Game.updateById(game.id, game);
+          game = await Game.getById(game.id);
         } catch(e) {
           console.log(e);
           return;
         }
-
-        if (game.timeLeft <= 0) {
-          await nextPhase(lobby.id, io);
-
-          try {
-            game = await Game.getById(game.id);
-          } catch(e) {
-            console.log(e);
-            return;
-          }
-          if (game.teamWon) {
-            clearInterval(lobbyIntervalId);
-          }
-
-          notifyLobbyUsers(lobby.id);
+        if (game.teamWon) {
+          clearInterval(lobbyIntervalId);
         }
-      }, 1000, lobby.id);
 
-      resolve();
-    });
-  };
+        notifyLobbyUsers(lobby.id);
+      }
+    }, 1000, lobby.id);
 
-  return whowolf;
+    resolve();
+  });
+};
+
+module.exports = (io) => {
+  const { notifyLobbyUsers } = require('./lobby')(io);
+
+  return {
+    initWhoWolfLobby: initWhoWolfLobby
+  }
 };
