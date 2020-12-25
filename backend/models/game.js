@@ -18,7 +18,7 @@ const Game = function(game) {
 Game.create = (newGame) => {
   return new Promise((resolve, reject) => {
     db.query(
-      'INSERT INTO game (lobby_id, werwolf_target, witch_target, round, phase, time_left, amount_werwolf_players, amount_witch_players, amount_witch_players, team_won) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO game (lobby_id, werwolf_target, witch_target, round, phase, time_left, amount_werwolf_players, amount_witch_players, amount_seer_players, team_won) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       Object.values(newGame),
       (err, res) => {
         if (err) {

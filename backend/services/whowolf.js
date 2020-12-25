@@ -2,7 +2,7 @@ const Lobby = require('../models/lobby');
 const Game = require('../models/game');
 const User = require('../models/user');
 
-const nextPhase = (lobbyId) => {
+const nextPhase = (lobbyId, io) => {
   return new Promise(async (resolve, reject) => {
     let lobby;
     let users;
@@ -31,7 +31,7 @@ const nextPhase = (lobbyId) => {
       let countSum = {};
 
       for (user of users) {
-        if (user.role !== 'WERWOLF') {
+        if (user.status === 'PLAYER_ALIVE' && user.role !== 'WERWOLF') {
           continue;
         }
 
@@ -57,24 +57,58 @@ const nextPhase = (lobbyId) => {
       if (targetPlayerId !== 'null') {
         game.werwolfTarget = targetPlayerId;
         game.phase++;
-          // TODO check if witch alive
-      } else {
-        // If werwolf did not attack anyone skip witch
-        // TODO check if seer alive
 
-        game.round++;
-        game.phase = 0;
+        let witchAlive = false;
+
+        for (user of users) {
+          if (user.status === 'PLAYER_ALIVE' && user.role === 'WITCH') {
+            witchAlive = true;
+          }
+        }
+
+        if (!witchAlive) {
+          game.phase++;
+
+          let seerAlive = false;
+
+          for (user of users) {
+            if (user.status === 'PLAYER_ALIVE' && user.role === 'SEER') {
+              seerAlive = true;
+            }
+          }
+
+          if (!seerAlive) {
+            game.round++;
+            game.phase = 0;
+          }
+        }
+      } else {
+        game.phase++;
+        game.phase++;
+
+        let seerAlive = false;
+
+        for (user of users) {
+          if (user.status === 'PLAYER_ALIVE' && user.role === 'SEER') {
+            seerAlive = true;
+          }
+        }
+
+        if (!seerAlive) {
+          game.round++;
+          game.phase = 0;
+        }
       }
     } else if (game.phase === 2) {
       for (user of users) {
-        if (!(user.role === 'WITCH' && user.healLeft > 0 && user.targetPlayerId !== null)) {
+        if (!(user.status === 'PLAYER_ALIVE' && user.role === 'WITCH' && user.actionLeft > 0 && user.targetPlayerId !== null)) {
           continue;
         }
 
         console.log(`Phase 2 target: ${user.targetPlayerId}`);
 
         game.witchTarget = user.targetPlayerId;
-        user.healLeft--;
+        user.actionLeft--;
 
         try {
           await User.updateById(user.id, user);
@@ -92,6 +126,35 @@ const nextPhase = (lobbyId) => {
       } catch(e) {
         console.log(e);
         return;
+      }
+
+
+      let seerAlive = false;
+
+      for (user of users) {
+        if (user.status === 'PLAYER_ALIVE' && user.role === 'SEER') {
+          seerAlive = true;
+        }
+      }
+
+      if (!seerAlive) {
+        game.round++;
+        game.phase = 0;
+      } else {
+        game.phase++;
+      }
+    } else if (game.phase === 3) {
+      for (user of users) {
+        if (!(user.status === 'PLAYER_ALIVE' && user.role === 'SEER' && user.targetPlayerId !== null)) {
+          continue;
+        }
+
+        targetPlayerId = user.targetPlayerId;
+
+        targetPlayer = await User.getById(user.targetPlayerId);
+
+        io.sockets.connected[user.id].emit('chat', { alias: 'SYSTEM', chatMessage: `${targetPlayer.alias} is a ${targetPlayer.role}` });
+        break;
       }
 
       game.round++;
@@ -324,7 +387,7 @@ module.exports = (io) => {
           i++;
         } else if (j < game.amountWitchPlayers && users[index].role === 'PEASENT') {
           users[index].role = 'WITCH';
-          users[index].healLeft = 1;
+          users[index].actionLeft = 1;
 
           try {
             await User.updateById(users[index].id, users[index]);
@@ -356,7 +419,7 @@ module.exports = (io) => {
         }
 
         if (game.timeLeft <= 0) {
-          await nextPhase(lobby.id);
+          await nextPhase(lobby.id, io);
 
           try {
             game = await Game.getById(game.id);

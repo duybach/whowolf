@@ -31,7 +31,7 @@ const startServer = () => {
         alias: null,
         status: null,
         role: null,
-        healLeft: null
+        actionLeft: null
       })
     );
 
@@ -277,10 +277,19 @@ const startServer = () => {
         case 'PLAYER_HEAL':
           if (game.phase === 2 && user.role === 'WITCH') {
             if (userInLobby(users, message.playerId)) {
-              if (user.healLeft > 0) {
+              if (user.actionLeft > 0) {
                 user.targetPlayerId = message.playerId;
                 await User.updateById(user.id, user);
               }
+            }
+          }
+
+          break;
+        case 'PLAYER_ROLE':
+          if (game.phase === 3 && user.role === 'SEER') {
+            if (userInLobby(users, message.playerId)) {
+              user.targetPlayerId = message.playerId;
+              await User.updateById(user.id, user);
             }
           }
 

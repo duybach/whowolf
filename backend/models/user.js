@@ -9,13 +9,13 @@ const User = function(user) {
   this.alias = user.alias;
   this.status = user.status;
   this.role = user.role;
-  this.healLeft = user.healLeft;
+  this.actionLeft = user.actionLeft;
 };
 
 User.create = (newUser) => {
   return new Promise((resolve, reject) => {
     db.query(
-      'INSERT INTO user (id, lobby_id, target_player_id, alias, status, role, heal_left) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO user (id, lobby_id, target_player_id, alias, status, role, action_left) VALUES (?, ?, ?, ?, ?, ?, ?)',
       Object.values(newUser),
       (err, res) => {
         if (err) {
@@ -45,8 +45,8 @@ User.getById = (id) => {
 User.updateById = (id, user) => {
   return new Promise((resolve, reject) => {
     db.query(
-      'UPDATE user SET lobby_id = ?, target_player_id = ?, alias = ?, status = ?, role = ?, heal_left = ? WHERE id = ?',
-      [user.lobbyId, user.targetPlayerId, user.alias, user.status, user.role, user.healLeft, id],
+      'UPDATE user SET lobby_id = ?, target_player_id = ?, alias = ?, status = ?, role = ?, action_left = ? WHERE id = ?',
+      [user.lobbyId, user.targetPlayerId, user.alias, user.status, user.role, user.actionLeft, id],
       (err, res) => {
         if (err) {
           reject(err);

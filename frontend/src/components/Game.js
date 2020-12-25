@@ -9,7 +9,7 @@ import ListGroup from 'react-bootstrap/ListGroup';
 import Row from 'react-bootstrap/Row';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faVoteYea, faSkull, faHeartbeat } from '@fortawesome/free-solid-svg-icons';
+import { faVoteYea, faSkull, faHeartbeat, faEye } from '@fortawesome/free-solid-svg-icons';
 
 import Chat from './Chat';
 
@@ -67,10 +67,16 @@ const Game = ({ socket, lobby, dispatch }) => {
           <Button variant="danger" onClick={() => pickPlayer(lobby.players[playerId].id, 'PLAYER_KILL')}><FontAwesomeIcon icon={faSkull} /></Button>
         </>
       );
-    } else if (lobby.game.phase === 2 && user.role === 'WITCH' && user.healLeft > 0 && lobby.game.werwolfTarget === lobby.players[playerId].id) {
+    } else if (lobby.game.phase === 2 && user.role === 'WITCH' && user.actionLeft > 0 && lobby.game.werwolfTarget === lobby.players[playerId].id) {
       return (
         <>
           <Button variant="danger" onClick={() => pickPlayer(lobby.players[playerId].id, 'PLAYER_HEAL')}><FontAwesomeIcon icon={faHeartbeat} /></Button>
+        </>
+      );
+    } else if (lobby.game.phase === 3 && user.role === 'SEER') {
+      return (
+        <>
+          <Button variant="info" onClick={() => pickPlayer(lobby.players[playerId].id, 'PLAYER_ROLE')}><FontAwesomeIcon icon={faEye} /></Button>
         </>
       );
     } else {
@@ -86,6 +92,8 @@ const Game = ({ socket, lobby, dispatch }) => {
         return 'Werwolf Phase';
       case 2:
         return 'Healing Phase';
+      case 3:
+        return 'Seer Phase';
       default:
         return '';
     }
@@ -117,7 +125,7 @@ const Game = ({ socket, lobby, dispatch }) => {
           <h3>Time: {lobby.game.phase === 0 ? 'day time' : 'night time'} ({renderPhase(lobby.game.phase)})</h3>
           <h3>Round: {lobby.game.round}</h3>
           <h3>Time left: {lobby.game.timeLeft}s</h3>
-          {user.role === 'WITCH' ? <h3>Heal left: {user.healLeft}</h3> : ''}
+          {user.role === 'WITCH' ? <h3>Heal left: {user.actionLeft}</h3> : ''}
 
           <ListGroup>
             {
