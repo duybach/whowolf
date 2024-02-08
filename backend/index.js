@@ -221,7 +221,7 @@ const startServer = () => {
           break;
         case 'START_GAME':
           if (socket.id === lobby.hostId && ['LOBBY_READY', 'GAME_END'].includes(lobby.status)) {
-            await whowolf.initWhoWolfLobby(socket, lobby.id);
+            await whowolf.initWhoWolfLobby(lobby.id);
           }
 
           break;

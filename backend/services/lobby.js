@@ -3,9 +3,7 @@ const Game = require('../models/game');
 const User = require('../models/user');
 
 module.exports = (io) => {
-  let lobby = {};
-
-  lobby.notifyLobbyUsers = async (lobbyId) => {
+  notifyLobbyUsers = async (lobbyId) => {
     let lobby;
     let users;
     try {
@@ -27,5 +25,7 @@ module.exports = (io) => {
     io.to(lobby.id).emit('lobbyStatus', { ...lobby, players: users, game: game });
   };
 
-  return lobby;
+  return {
+    notifyLobbyUsers
+  };
 };
